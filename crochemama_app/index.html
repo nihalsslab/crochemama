@@ -237,8 +237,8 @@
 
         async function fetchFinancialOverview() {
             try {
-                // Fetch Master Sheet Data (INCOME, EXPENSE, PROFIT)
-                const response = await fetch(`${SCRIPT_URL}?action=getCategories`);
+                // Fetch STATEMENT Data (Source of Truth) instead of Master
+                const response = await fetch(`${SCRIPT_URL}?action=getStatement`);
                 const data = await response.json();
                 updateFinancialUI(data);
             } catch (error) {
@@ -259,16 +259,18 @@
             let totalExpense = 0;
             let totalProfit = 0;
 
-            if (data && data.length > 0) {
+            if (data && Array.isArray(data)) {
                 data.forEach(row => {
-                    const income = parseFloat(row['INCOME']) || 0;
-                    const expense = parseFloat(row['EXPENSE']) || 0;
-                    const profit = parseFloat(row['PROFIT']) || 0;
+                    // Statement structure: Date, Description, Income, Expense, Profit
+                    // Parse values, defaulting to 0
+                    const income = parseFloat(row.Income) || 0;
+                    const expense = parseFloat(row.Expense) || 0;
 
                     totalIncome += income;
                     totalExpense += expense;
-                    totalProfit += profit;
                 });
+                // Calculate Profit dynamically
+                totalProfit = totalIncome - totalExpense;
             }
 
             // Update Amounts
