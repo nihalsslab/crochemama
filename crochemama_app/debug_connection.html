@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connection Debugger</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 p-8 font-mono text-sm">
+
+    <div class="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-md">
+        <h1 class="text-xl font-bold mb-4 border-b pb-2">Backend Connection Diagnostic</h1>
+
+        <div class="mb-4">
+            <h2 class="font-bold text-gray-700">Target Script URL:</h2>
+            <div id="urlDisplay" class="bg-gray-100 p-2 rounded break-all text-xs text-blue-600 mb-2"></div>
+        </div>
+
+        <div class="mb-4">
+            <button onclick="runTest()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+                Run Connection Test
+            </button>
+        </div>
+
+        <div id="status" class="hidden p-4 rounded mb-4"></div>
+
+        <div>
+            <h2 class="font-bold text-gray-700 mb-2">Log Output:</h2>
+            <div id="console" class="bg-black text-green-400 p-4 rounded h-64 overflow-y-auto whitespace-pre-wrap">
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+
+
+        document.getElementById('urlDisplay').innerText = SCRIPT_URL;
+
+        function log(msg, type = 'info') {
+            const c = document.getElementById('console');
+            const timestamp = new Date().toLocaleTimeString();
+            let color = 'text-green-400';
+            if (type === 'error') color = 'text-red-400';
+            if (type === 'warn') color = 'text-yellow-400';
+
+            c.innerHTML += `<div class="${color}">[${timestamp}] ${msg}</div>`;
+            c.scrollTop = c.scrollHeight;
+        }
+
+        async function runTest() {
+            log("Starting test...", 'warn');
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = "p-4 rounded mb-4 bg-yellow-100 text-yellow-800";
+            statusDiv.innerText = "Testing...";
+            statusDiv.classList.remove('hidden');
+
+            try {
+                // 1. Simple Fetch
+                log(`Attempting GET request to: ?action=getInventory`);
+
+                // Add timestamp to prevent caching
+                const target = `${SCRIPT_URL}?action=getInventory&t=${Date.now()}`;
+
+                const start = Date.now();
+                const response = await fetch(target, {
+                    method: 'GET'
+                });
+                const duration = Date.now() - start;
+
+                log(`Response received in ${duration}ms`);
+                log(`Status: ${response.status} ${response.statusText}`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP Error: ${response.status}`);
+                }
+
+                const text = await response.text();
+                log(`Response Body Length: ${text.length} chars`);
+                log(`Response Preview: ${text.substring(0, 100)}...`);
+
+                try {
+                    const json = JSON.parse(text);
+                    log("JSON Parse Success!", 'info');
+                    console.log(json);
+
+                    if (json.result === 'error') {
+                        log(`Backend Error Returned: ${json.error}`, 'error');
+                        statusDiv.className = "p-4 rounded mb-4 bg-red-100 text-red-800";
+                        statusDiv.innerText = "Backend Logic Error";
+                    } else {
+                        log(`Successfully retrieved ${json.length} items.`, 'info');
+                        statusDiv.className = "p-4 rounded mb-4 bg-green-100 text-green-800";
+                        statusDiv.innerText = "SUCCESS: Connection Working!";
+                    }
+
+                } catch (e) {
+                    log("Failed to parse JSON. Response might be HTML (error page).", 'error');
+                    statusDiv.className = "p-4 rounded mb-4 bg-red-100 text-red-800";
+                    statusDiv.innerText = "Invalid Data Received";
+                }
+
+            } catch (error) {
+                log(`FETCH FAILED: ${error.message}`, 'error');
+                log(`Name: ${error.name}`);
+                log(`Stack: ${error.stack}`);
+
+                statusDiv.className = "p-4 rounded mb-4 bg-red-100 text-red-800";
+                statusDiv.innerHTML = `<strong>FAILED:</strong> ${error.message}<br><br>
+                Possible Causes:<br>
+                1. <strong>Permissions:</strong> 'Who has access' is not 'Anyone'.<br>
+                2. <strong>CORS:</strong> Google is blocking the request.<br>
+                3. <strong>Network:</strong> Firewall/Adblocker is interfering.`;
+            }
+        }
+    </script>
+</body>
+
+</html>
