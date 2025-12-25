@@ -326,8 +326,8 @@
         // --- MASTER DATA (EXPENSES) ---
         async function fetchMasterData() {
             try {
-                // Currently 'getCategories' returns contents of Master sheet
-                const response = await fetch(`${SCRIPT_URL}?action=getCategories`);
+                // Fetch STATEMENT Data (Source of Truth)
+                const response = await fetch(`${SCRIPT_URL}?action=getStatement`);
                 const data = await response.json();
                 renderExpenses(data);
             } catch (error) {
@@ -341,32 +341,31 @@
             container.innerHTML = '';
 
             if (data.length === 0) {
-                container.innerHTML = '<div class="text-text-muted">Master sheet is empty</div>';
+                container.innerHTML = '<div class="text-text-muted">Statement is empty</div>';
                 return;
             }
 
-            // Check structure. If it has headers like INCOME, EXPENSE, PROFIT:
-            const firstItem = data[0];
-            if (firstItem.hasOwnProperty('INCOME') || firstItem.hasOwnProperty('EXPENSE')) {
-                renderFinancialSummary(data);
-            } else {
-                // Fallback list view (if it's just categories)
-                renderSimpleList(data, container, 'Master Data');
-            }
+            // Always render financial summary relative to statement data
+            renderFinancialSummary(data);
         }
 
         function renderFinancialSummary(data) {
-            // Aggregate or show latest? Assuming rows are monthly
-            // Let's summing up all rows for "Total"
             let totalIncome = 0;
             let totalExpense = 0;
             let totalProfit = 0;
 
-            data.forEach(row => {
-                totalIncome += parseFloat(row['INCOME'] || 0);
-                totalExpense += parseFloat(row['EXPENSE'] || 0);
-                totalProfit += parseFloat(row['PROFIT'] || 0);
-            });
+            if (data && Array.isArray(data)) {
+                data.forEach(row => {
+                    // Statement keys: Income, Expense
+                    const income = parseFloat(row.Income) || 0;
+                    const expense = parseFloat(row.Expense) || 0;
+
+                    totalIncome += income;
+                    totalExpense += expense;
+                });
+                // Calculate Profit dynamically
+                totalProfit = totalIncome - totalExpense;
+            }
 
             const html = `
             <div class="w-full space-y-4">
